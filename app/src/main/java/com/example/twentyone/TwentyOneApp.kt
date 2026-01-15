@@ -44,6 +44,14 @@ fun TwentyOneApp() {
     var currentRound by remember { mutableStateOf(1) }
     var currentDamage by remember { mutableStateOf(1) }
 
+    // Hidden first-card ranks (stored separately)
+    var yourHiddenRank by remember { mutableStateOf<String?>(null) }
+    var opponentHiddenRank by remember { mutableStateOf<String?>(null) }
+
+    // If you need an Int version (optional)
+    val yourHiddenValue = yourHiddenRank?.toIntOrNull()
+    val opponentHiddenValue = opponentHiddenRank?.toIntOrNull()
+
     var inGame by remember { mutableStateOf(false) }
     var gameOver by remember { mutableStateOf(false) }
     var matchOver by remember { mutableStateOf(false) }
@@ -71,6 +79,10 @@ fun TwentyOneApp() {
                         onUpdateHands = { y, o ->
                             yourHand = y
                             opponentHand = o
+
+                            // store hidden ranks (first card of each hand)
+                            yourHiddenRank = y.firstOrNull()?.rank
+                            opponentHiddenRank = o.firstOrNull()?.rank
                         },
                         onUpdateValues = { y, o ->
                             if (y != 0) yourValue = y
@@ -83,9 +95,9 @@ fun TwentyOneApp() {
                         onUpdateRound = { currentRound = it },
                         onUpdateDamage = { currentDamage = it },
                         onSetInGame = { inGame = it },
-                        onGameOver = {
-                            winnerText = it.ifEmpty { null }
-                            gameOver = it.isNotEmpty()
+                        onGameOver = { msg ->
+                            winnerText = msg.ifEmpty { null }
+                            gameOver = msg.isNotEmpty()
                         },
                         onStatus = { statusText = it },
                         onRoomsUpdate = { rooms = it },
@@ -100,11 +112,11 @@ fun TwentyOneApp() {
 
     val isYourTurn = playerId != null && playerId == currentTurnPlayerId
 
+    // Your existing disconnect logic (unchanged behavior)
     LaunchedEffect(gameOver) {
         if (gameOver) {
             disconnectCountdown = 10
-
-            while (disconnectCountdown!! > 0) {
+            while (disconnectCountdown != null && disconnectCountdown!! > 0) {
                 delay(1000)
                 disconnectCountdown = disconnectCountdown!! - 1
             }
@@ -125,7 +137,6 @@ fun TwentyOneApp() {
         }
     }
 
-
     if (!inGame) {
         LobbyScreen(
             title = "♠ Twenty-One",
@@ -144,9 +155,9 @@ fun TwentyOneApp() {
             currentRound = currentRound,
             currentDamage = currentDamage,
             opponentValueOrHidden = if (gameOver) opponentValue.toString() else "??",
-            opponentCardCount = opponentHand.size,
             yourValue = yourValue,
             yourHand = yourHand,
+            opponentHand = opponentHand,
             isYourTurn = isYourTurn,
             gameOver = gameOver,
             winnerText = winnerText,
@@ -215,12 +226,12 @@ fun handleSocketEvent(
                 List(arr.length()) {
                     val o = arr.getJSONObject(it)
                     RoomInfo(
-                        o.getInt("roomId"),
-                        List(o.getJSONArray("players").length()) { i ->
+                        roomId = o.getInt("roomId"),
+                        players = List(o.getJSONArray("players").length()) { i ->
                             o.getJSONArray("players").getString(i)
                         },
-                        o.getString("state"),
-                        o.getString("mode")
+                        state = o.getString("state"),
+                        mode = o.getString("mode")
                     )
                 }
             )

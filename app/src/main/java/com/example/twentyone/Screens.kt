@@ -1,10 +1,11 @@
 package com.example.twentyone
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -13,17 +14,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.platform.LocalInspectionMode
-
-
-
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /* =========================
    LOBBY (MAIN MENU) UI
@@ -65,10 +61,7 @@ fun LobbyScreen(
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 waitingRooms.forEach { room ->
-                    RoomRow(
-                        room = room,
-                        onJoin = { onJoinRoom(room.roomId) }
-                    )
+                    RoomRow(room = room, onJoin = { onJoinRoom(room.roomId) })
                 }
             }
         }
@@ -105,10 +98,10 @@ fun GameScreen(
     opponentHealth: Int,
     currentRound: Int,
     currentDamage: Int,
-    opponentValueOrHidden: String,
-    opponentCardCount: Int,
-    yourValue: Int,
+    opponentValueOrHidden: String, // bleibt drin, aber wir zeigen unsere eigene Anzeige
+    yourValue: Int,                // bleibt drin, aber wir zeigen unsere eigene Anzeige
     yourHand: List<CardModel>,
+    opponentHand: List<CardModel>,
     isYourTurn: Boolean,
     gameOver: Boolean,
     winnerText: String?,
@@ -118,9 +111,16 @@ fun GameScreen(
     onStand: () -> Unit,
     onRematch: () -> Unit
 ) {
+    // Summen aus den Händen berechnen (nur Zahlenkarten)
+    val oppRevealed = revealedSum(opponentHand)   // ohne erste Karte
+    val oppHidden = hiddenValue(opponentHand)     // nur erste Karte
+
+    val youRevealed = revealedSum(yourHand)
+    val youHidden = hiddenValue(yourHand)
+
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // Background image
+        // Background image (muss existieren: res/drawable/table1.png oder .webp)
         Image(
             painter = painterResource(R.drawable.table1),
             contentDescription = null,
@@ -129,32 +129,84 @@ fun GameScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Foreground UI
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            Text(title, style = MaterialTheme.typography.headlineMedium)
+            Text(title, style = MaterialTheme.typography.headlineMedium, color = Color.White)
             Spacer(Modifier.height(4.dp))
-            Text(statusText)
+            Text(statusText, color = Color.White)
             Spacer(Modifier.height(16.dp))
 
-            Text("Health: You $yourHealth | Opponent $opponentHealth | Round $currentRound | Damage $currentDamage")
+            Text(
+                text = "Health: You $yourHealth | Opponent $opponentHealth | Round $currentRound | Damage $currentDamage",
+                color = Color.White
+            )
+
             Spacer(Modifier.height(12.dp))
 
-            Text("Opponent: $opponentValueOrHidden")
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                repeat(opponentCardCount) { CardBack() }
+            // Gegner-Anzeige:
+            // - während Runde: "?? + revealedSum"
+            // - am Ende: komplette Summe
+            val opponentLine = if (!gameOver) {
+                "Opponent: ?? + $oppRevealed"
+            } else {
+                "Opponent: ${oppRevealed + oppHidden}"
             }
 
-            // Replace this fixed spacer later:
-            Spacer(Modifier.height(320.dp))
+            Text(text = opponentLine, color = Color.White)
 
-            Text("You ($yourValue)")
-            CardRow(yourHand)
+            if (gameOver) {
+                Text(
+                    text = "(revealed $oppRevealed + hidden $oppHidden)",
+                    color = Color.White,
+                    fontSize = 12.sp
+                )
+            }
 
-            Spacer(Modifier.height(15.dp))
+            Spacer(Modifier.height(8.dp))
+
+            // Gegner-Hand: erste Karte verdeckt, am Ende aufdecken
+            HandWithHiddenFirstCard(
+                cards = opponentHand,
+                revealAll = gameOver,
+                showHiddenRankUnderFirst = false
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Deine Anzeige:
+            // du kennst deine verdeckte Karte, also kannst du immer die volle Summe anzeigen
+            val youLine = if (!gameOver) {
+                "You: ${youRevealed + youHidden}"
+            } else {
+                "You: ${youRevealed + youHidden}"
+            }
+
+            Text(text = youLine, color = Color.White)
+
+            if (gameOver) {
+                Text(
+                    text = "(revealed $youRevealed + hidden $youHidden)",
+                    color = Color.White,
+                    fontSize = 12.sp
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Deine Hand:
+            // - erste Karte verdeckt, aber Zahl darunter als Text (nur während Runde)
+            // - am Ende: aufdecken (dann kein "Text darunter" nötig)
+            HandWithHiddenFirstCard(
+                cards = yourHand,
+                revealAll = gameOver,
+                showHiddenRankUnderFirst = !gameOver
+            )
+
+            Spacer(Modifier.height(16.dp))
+
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(onClick = onHit, enabled = isYourTurn) { Text("Hit") }
                 Button(onClick = onStand, enabled = isYourTurn) { Text("Stand") }
@@ -162,7 +214,7 @@ fun GameScreen(
             }
 
             winnerText?.let {
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(16.dp))
                 Text(
                     it,
                     fontSize = 24.sp,
@@ -180,13 +232,36 @@ fun GameScreen(
 }
 
 /* =========================
-   CARD UI
+   HAND + CARDS UI
    ========================= */
 
 @Composable
-private fun CardRow(cards: List<CardModel>) {
+private fun HandWithHiddenFirstCard(
+    cards: List<CardModel>,
+    revealAll: Boolean,
+    showHiddenRankUnderFirst: Boolean
+) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        items(cards) { card -> PlayingCard(card) }
+        itemsIndexed(cards) { index, card ->
+            if (index == 0 && !revealAll) {
+                // erste Karte verdeckt
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CardBack()
+
+                    // nur bei dir: Zahl unter der verdeckten Karte anzeigen
+                    if (showHiddenRankUnderFirst) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = card.rank,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            } else {
+                PlayingCard(card)
+            }
+        }
     }
 }
 
@@ -196,15 +271,17 @@ private fun PlayingCard(card: CardModel) {
 
     Box(
         modifier = Modifier
-            .size(72.dp, 104.dp)
+            .size(65.dp, 85.dp)
             .background(Color.White, RoundedCornerShape(12.dp))
             .border(2.dp, Color.Black, RoundedCornerShape(12.dp)),
         contentAlignment = Alignment.Center
     ) {
         Image(
-            painter = painterResource(id = imageRes),
+            painter = painterResource(imageRes),
             contentDescription = "Card ${card.rank}",
-            modifier = Modifier.fillMaxSize().padding(6.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(6.dp)
         )
     }
 }
@@ -213,13 +290,13 @@ private fun PlayingCard(card: CardModel) {
 private fun CardBack() {
     Box(
         modifier = Modifier
-            .size(72.dp, 104.dp)
+            .size(65.dp, 85.dp)
             .background(Color.White, RoundedCornerShape(12.dp))
             .border(2.dp, Color.Black, RoundedCornerShape(12.dp)),
         contentAlignment = Alignment.Center
     ) {
         Image(
-            painter = painterResource(id = R.drawable.cardbacksidewhite),
+            painter = painterResource(R.drawable.cardbacksidewhite),
             contentDescription = "Card back",
             modifier = Modifier
                 .fillMaxSize()
@@ -227,6 +304,24 @@ private fun CardBack() {
         )
     }
 }
+
+/* =========================
+   RANK/VALUE HELPERS (nur Zahlen)
+   ========================= */
+
+private fun rankToValue(rank: String): Int = rank.toIntOrNull() ?: 0
+
+// Summe der aufgedeckten Karten = alle außer die erste
+private fun revealedSum(hand: List<CardModel>): Int =
+    hand.drop(1).sumOf { rankToValue(it.rank) }
+
+// Wert der verdeckten Karte = erste Karte
+private fun hiddenValue(hand: List<CardModel>): Int =
+    hand.firstOrNull()?.let { rankToValue(it.rank) } ?: 0
+
+/* =========================
+   IMAGE MAPPING (nur Zahlen)
+   ========================= */
 
 private fun cardImageForRank(rank: String): Int {
     return when (rank) {
@@ -245,48 +340,51 @@ private fun cardImageForRank(rank: String): Int {
     }
 }
 
+/* =========================
+   PREVIEWS
+   ========================= */
+
 @Preview(showBackground = true)
 @Composable
 fun LobbyScreenPreview() {
-    LobbyScreen(
-        title = "♠ Twenty-One",
-        statusText = "Lobby ready",
-        rooms = listOf(
-            RoomInfo(1, listOf("Player 1"), "waiting", "classic"),
-            RoomInfo(2, listOf("Player 2"), "waiting", "classic")
-        ),
-        onRefresh = {},
-        onJoinRoom = {},
-        onCreateRoom = {}
-    )
+    MaterialTheme {
+        LobbyScreen(
+            title = "♠ Twenty-One",
+            statusText = "Lobby ready",
+            rooms = listOf(
+                RoomInfo(1, listOf("Player 1"), "waiting", "classic"),
+                RoomInfo(2, listOf("Player 2"), "waiting", "classic")
+            ),
+            onRefresh = {},
+            onJoinRoom = {},
+            onCreateRoom = {}
+        )
+    }
 }
 
 @Preview(showBackground = true)
 @Composable
 fun GameScreenPreview() {
-    GameScreen(
-        title = "♠ Twenty-One",
-        statusText = "Your turn",
-        yourHealth = 7,
-        opponentHealth = 6,
-        currentRound = 2,
-        currentDamage = 1,
-        opponentValueOrHidden = "??",
-        opponentCardCount = 3,
-        yourValue = 18,
-        yourHand = listOf(
-            CardModel("1"),
-            CardModel("7"),
-            CardModel("4")
-        ),
-        isYourTurn = true,
-        gameOver = false,
-        winnerText = null,
-        canRematch = false,
-        disconnectCountdown = null,
-        onHit = {},
-        onStand = {},
-        onRematch = {}
-    )
+    MaterialTheme {
+        GameScreen(
+            title = "♠ Twenty-One",
+            statusText = "Your turn",
+            yourHealth = 7,
+            opponentHealth = 6,
+            currentRound = 2,
+            currentDamage = 1,
+            opponentValueOrHidden = "??",
+            yourValue = 18,
+            yourHand = listOf(CardModel("1"), CardModel("7"), CardModel("4")),
+            opponentHand = listOf(CardModel("2"), CardModel("5"), CardModel("9")),
+            isYourTurn = true,
+            gameOver = false, // setze true um Reveal zu sehen
+            winnerText = null,
+            canRematch = false,
+            disconnectCountdown = null,
+            onHit = {},
+            onStand = {},
+            onRematch = {}
+        )
+    }
 }
-
