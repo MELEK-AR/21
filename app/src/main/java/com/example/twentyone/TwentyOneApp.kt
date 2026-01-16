@@ -108,7 +108,30 @@ fun TwentyOneApp() {
         )
     }
 
-    LaunchedEffect(Unit) { socket.connect() }
+    LaunchedEffect(gameOver) {
+        Thread.sleep(1500) // This is crude but it works dont go over 3000 app will crash
+        if (gameOver) {
+            disconnectCountdown = 10
+            while (disconnectCountdown != null && disconnectCountdown!! > 0) {
+                delay(1000)
+                disconnectCountdown = disconnectCountdown!! - 1
+            }
+
+            socket.leaveRoom()
+
+            inGame = false
+            yourHand = emptyList()
+            opponentHand = emptyList()
+            yourValue = 0
+            opponentValue = 0
+            gameOver = false
+            matchOver = false
+            statusText = "Disconnected"
+            disconnectCountdown = null
+        } else {
+            disconnectCountdown = null
+        }
+    }
 
     val isYourTurn = playerId != null && playerId == currentTurnPlayerId
 
