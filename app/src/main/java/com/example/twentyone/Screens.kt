@@ -34,39 +34,60 @@ fun LobbyScreen(
     onJoinRoom: (roomId: Int) -> Unit,
     onCreateRoom: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(title, style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(4.dp))
-        Text(statusText)
-        Spacer(Modifier.height(16.dp))
+    Box(modifier = Modifier.fillMaxSize()) {
 
-        Text("Available Rooms", fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
+        // Background image
+        Image(
+            painter = painterResource(R.drawable.blackjackbackground),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            alignment = Alignment.BottomCenter,
+            modifier = Modifier.fillMaxSize()
+        )
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Button(onClick = onRefresh) { Text("Refresh") }
-            Spacer(Modifier.width(12.dp))
-            Button(onClick = onCreateRoom) { Text("Create Room") }
-        }
+        // Optional: dark overlay so text is readable
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.35f))
+        )
 
-        Spacer(Modifier.height(16.dp))
+        // Foreground UI
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            Text(title, style = MaterialTheme.typography.headlineMedium, color = Color.White)
+            Spacer(Modifier.height(4.dp))
+            Text(statusText, color = Color.White)
+            Spacer(Modifier.height(16.dp))
 
-        val waitingRooms = rooms.filter { it.state == "waiting" }
-        if (waitingRooms.isEmpty()) {
-            Text("No rooms yet")
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                waitingRooms.forEach { room ->
-                    RoomRow(room = room, onJoin = { onJoinRoom(room.roomId) })
+            Text("Available Rooms", fontWeight = FontWeight.Bold, color = Color.White)
+            Spacer(Modifier.height(8.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(onClick = onRefresh) { Text("Refresh") }
+                Spacer(Modifier.width(12.dp))
+                Button(onClick = onCreateRoom) { Text("Create Room") }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            val waitingRooms = rooms.filter { it.state == "waiting" }
+            if (waitingRooms.isEmpty()) {
+                Text("No rooms yet", color = Color.White)
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    waitingRooms.forEach { room ->
+                        RoomRow(room = room, onJoin = { onJoinRoom(room.roomId) })
+                    }
                 }
             }
         }
     }
 }
+
 
 @Composable
 private fun RoomRow(room: RoomInfo, onJoin: () -> Unit) {
